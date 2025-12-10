@@ -5,6 +5,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 export const authMiddleware = (req, res, next) => {
     // Get token from header
     const authHeader = req.headers.authorization;
+    console.log('Auth Middleware - Headers:', req.headers); // DEBUG LOG
+    console.log('Auth Middleware - AuthHeader:', authHeader); // DEBUG LOG
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ message: 'No token, authorization denied' });

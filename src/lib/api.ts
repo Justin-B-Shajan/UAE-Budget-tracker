@@ -18,6 +18,8 @@ async function request(endpoint: string, options: RequestInit = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    console.log(`API Request to ${url}`, { token: token ? 'Present' : 'Missing', headers }); // DEBUG LOG
+
     const config: RequestInit = {
         headers,
         ...options,
