@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { BudgetSummary } from "@/components/BudgetSummary";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseList } from "@/components/ExpenseList";
@@ -39,6 +40,7 @@ export interface Expense {
 }
 
 const Index = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [historyToView, setHistoryToView] = useState<{
@@ -754,7 +756,7 @@ const Index = () => {
             </div>
           </div>
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-primary to-secondary bg-clip-text text-transparent mb-2">
-            Daily Budget Tracker
+            Hello, {user?.username || "Guest"}
           </h1>
           <p className="text-muted-foreground text-lg">
             Track your daily food & other expenses with style

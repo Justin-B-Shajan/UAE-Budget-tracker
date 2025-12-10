@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { roomRentsAPI } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { Expense } from '@/pages/Index';
 
 export const useRoomRents = () => {
+    const { user } = useAuth();
     return useQuery({
-        queryKey: ['roomRents'],
+        queryKey: ['roomRents', user?.id],
         queryFn: roomRentsAPI.getAll,
+        enabled: !!user?.id,
     });
 };
 

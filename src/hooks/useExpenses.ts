@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { expensesAPI } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { Expense } from '@/pages/Index';
 
 export const useExpenses = () => {
+    const { user } = useAuth();
     return useQuery({
-        queryKey: ['expenses'],
+        queryKey: ['expenses', user?.id],
         queryFn: expensesAPI.getAll,
+        enabled: !!user?.id,
     });
 };
 
