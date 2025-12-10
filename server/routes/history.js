@@ -1,128 +1,161 @@
 import express from 'express';
-import BudgetHistory from '../models/BudgetHistory.js';
-import Expense from '../models/Expense.js';
-import RoomRent from '../models/RoomRent.js';
+import { getDb, saveDatabase } from '../config/database.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-/**
- * GET /api/history
- * Get all archived monthly summaries
- */
-router.get('/', (req, res) => {
+// @route   GET api/history
+// @desc    Get all archived months for authenticated user
+// @access  Private
+router.get('/', authMiddleware, (req, res) => {
     try {
-        const history = BudgetHistory.getAll();
+        const db = getDb();
+        const history = db.prepare('SELECT * FROM budget_history WHERE user_id = ? ORDER BY month DESC').all([req.userId]);
 
-        // Format response to match frontend expectations
-        const formattedHistory = {};
-        history.forEach(item => {
-            formattedHistory[item.month] = {
-                summary: {
-                    mealsTotal: item.meals_total,
-                    othersTotal: item.others_total,
-                    monthlyTotal: item.monthly_total,
-                    totalDays: item.total_days,
-                    averageMealsTotal: item.average_meals_total
-                }
-            };
-        });
+        // Parse the stored JSON
+        const parsedHistory = history.map(h => ({
+            ...h,
+            expenses: JSON.parse(h.expenses_json)
+        }));
 
-        res.json(formattedHistory);
-    } catch (error) {
-        console.error('Error fetching history:', error);
-        res.status(500).json({ error: 'Failed to fetch history' });
+        res.json(parsedHistory);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
-/**
- * GET /api/history/:month
- * Get detailed history for a specific month (YYYY-MM format)
- */
-router.get('/:month', (req, res) => {
+// @route   GET api/history/:month
+// @desc    Get specific month history for authenticated user
+// @access  Private
+router.get('/:month', authMiddleware, (req, res) => {
     try {
-        const history = BudgetHistory.getByMonth(req.params.month);
+        const db = getDb();
+        const history = db.prepare('SELECT * FROM budget_history WHERE month = ? AND user_id = ?').get([req.params.month, req.userId]);
 
         if (!history) {
-            return res.status(404).json({ error: 'History not found for this month' });
+            return res.status(404).json({ message: 'History not found for this month' });
         }
 
+        history.expenses = JSON.parse(history.expenses_json);
         res.json(history);
-    } catch (error) {
-        console.error('Error fetching month history:', error);
-        res.status(500).json({ error: 'Failed to fetch month history' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
-/**
- * POST /api/history/archive
- * Archive the current or specified month
- */
-router.post('/archive', (req, res) => {
+// @route   POST api/history/archive
+// @desc    Archive a specific month
+// @access  Private
+router.post('/archive', authMiddleware, async (req, res) => {
     try {
-        const { month } = req.body;
-        const monthToArchive = month || new Date().toISOString().slice(0, 7);
+        const { month } = req.body; // Format: 'YYYY-MM'
 
-        // Get expenses and room rents for the month
-        const expenses = Expense.getByMonth(monthToArchive);
-        const roomRents = RoomRent.getByMonth(monthToArchive);
+        if (!month) {
+            return res.status(400).json({ message: 'Month is required (YYYY-MM)' });
+        }
 
-        // Combine all expenses
+        const db = getDb();
+
+        // Check if already archived
+        const existing = db.prepare('SELECT * FROM budget_history WHERE month = ? AND user_id = ?').get([month, req.userId]);
+        if (existing) {
+            return res.status(400).json({ message: 'Month already archived' });
+        }
+
+        // Get all expenses for that month matching user
+        const expenses = db.prepare(
+            'SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ? AND user_id = ?'
+        ).all([month, req.userId]);
+
+        const roomRents = db.prepare(
+            'SELECT * FROM room_rents WHERE strftime("%Y-%m", date) = ? AND user_id = ?'
+        ).all([month, req.userId]);
+
         const allExpenses = [...expenses, ...roomRents];
 
         if (allExpenses.length === 0) {
-            return res.status(400).json({
-                error: 'No expenses found for this month',
-                month: monthToArchive
-            });
+            return res.status(400).json({ message: 'No expenses found to archive for this month' });
         }
 
-        // Calculate summary statistics
-        const mealsTotal = allExpenses
-            .filter(e => e.item.toLowerCase().includes('meal'))
-            .reduce((acc, e) => acc + e.cost, 0);
+        // Calculate summaries
+        let mealsTotal = 0;
+        let othersTotal = 0;
 
-        const monthlyTotal = allExpenses.reduce((acc, e) => acc + e.cost, 0);
-        const othersTotal = monthlyTotal - mealsTotal;
+        const mealKeywords = ["Breakfast", "Lunch", "Dinner", "Snacks"];
 
-        // Count unique days
-        const uniqueDates = new Set(allExpenses.map(e => e.date));
-        const totalDays = uniqueDates.size;
+        allExpenses.forEach(exp => {
+            if (mealKeywords.includes(exp.item)) {
+                mealsTotal += exp.cost;
+            } else {
+                othersTotal += exp.cost;
+            }
+        });
+
+        const monthlyTotal = mealsTotal + othersTotal;
+
+        // Calculate total unique days
+        const totalDays = new Set(
+            allExpenses.filter(e => e.item !== "Others" && e.item !== "Room Rent").map(e => e.date)
+        ).size;
 
         const averageMealsTotal = totalDays > 0 ? mealsTotal / totalDays : 0;
 
-        const summaryData = {
+        // Create history record
+        const result = db.prepare(`
+      INSERT INTO budget_history (
+        user_id, month, meals_total, others_total, monthly_total, 
+        total_days, average_meals_total, expenses_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run([
+            req.userId,
+            month,
             mealsTotal,
             othersTotal,
             monthlyTotal,
             totalDays,
-            averageMealsTotal: parseFloat(averageMealsTotal.toFixed(2))
+            averageMealsTotal,
+            JSON.stringify(allExpenses)
+        ]);
+
+        saveDatabase();
+
+        const newHistory = {
+            id: result.lastInsertRowid,
+            user_id: req.userId,
+            month,
+            meals_total: mealsTotal,
+            others_total: othersTotal,
+            monthly_total: monthlyTotal,
+            total_days: totalDays,
+            average_meals_total: averageMealsTotal,
+            expenses: allExpenses,
+            created_at: new Date().toISOString()
         };
 
-        // Archive the data
-        const archived = BudgetHistory.archive(monthToArchive, summaryData, allExpenses);
-
-        res.json({
-            message: 'Month archived successfully',
-            month: monthToArchive,
-            archived
-        });
-    } catch (error) {
-        console.error('Error archiving month:', error);
-        res.status(500).json({ error: 'Failed to archive month' });
+        res.json(newHistory);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
-/**
- * DELETE /api/history/:month
- * Delete archived history for a specific month
- */
-router.delete('/:month', (req, res) => {
+// @route   DELETE api/history/:month
+// @desc    Delete archived history for a specific month
+// @access  Private
+router.delete('/:month', authMiddleware, (req, res) => {
     try {
-        const deleted = BudgetHistory.delete(req.params.month);
+        const db = getDb();
 
-        if (!deleted) {
-            return res.status(404).json({ error: 'History not found for this month' });
+        const stmt = db.prepare('DELETE FROM budget_history WHERE month = ? AND user_id = ?');
+        const result = stmt.run([req.params.month, req.userId]);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'History not found for this month' });
         }
+
+        saveDatabase();
 
         res.json({ message: 'History deleted successfully' });
     } catch (error) {

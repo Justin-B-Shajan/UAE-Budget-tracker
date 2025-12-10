@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import routes
+import authRouter from './routes/auth.js';
 import expensesRouter from './routes/expenses.js';
 import roomRentsRouter from './routes/roomRents.js';
 import historyRouter from './routes/history.js';
@@ -33,6 +34,7 @@ app.use((req, res, next) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/room-rents', roomRentsRouter);
 app.use('/api/history', historyRouter);

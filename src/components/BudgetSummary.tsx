@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Expense } from "@/pages/Index";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Pencil, PiggyBank, DollarSign } from "lucide-react";
 import {
   Calendar,
   TrendingUp,
@@ -12,22 +13,40 @@ import {
   Scale,
   Home,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { authAPI } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast"; // Assuming this exists based on Index.tsx
 
 interface BudgetSummaryProps {
   expenses: Expense[];
   roomRents?: Expense[] | null;
   onDownloadAll: () => void;
 }
+
 export const BudgetSummary = ({
   expenses,
   roomRents,
   onDownloadAll,
 }: BudgetSummaryProps) => {
+  const { user, updateUser } = useAuth();
+  const { toast } = useToast();
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
+  const [newBudget, setNewBudget] = useState(user?.monthly_budget?.toString() || "");
+
   const today = new Date().toISOString().split("T")[0];
 
   const todayTotal = expenses
     .filter((e) => e.date === today)
     .reduce((sum, e) => sum + e.cost, 0);
+
   const getWeekNumber = (date: Date) => {
     const d = new Date(
       Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
@@ -48,22 +67,19 @@ export const BudgetSummary = ({
       );
     })
     .reduce((sum, e) => sum + e.cost, 0);
+
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthlyTotal = expenses
     .filter((e) => e.date.startsWith(currentMonth))
     .reduce((sum, e) => sum + e.cost, 0);
+
   const totalExpense =
     expenses.reduce((sum, e) => sum + e.cost, 0) +
     (roomRents?.reduce((sum, rent) => sum + rent.cost, 0) || 0);
+
   const totalDays = new Set(
     expenses.filter((e) => e.item !== "Others").map((e) => e.date)
   ).size;
-  const dailyAverage =
-    totalDays > 0
-      ? (expenses.reduce((sum, e) => sum + e.cost, 0) +
-          (roomRents?.reduce((sum, rent) => sum + rent.cost, 0) || 0)) /
-        totalDays
-      : 0;
 
   const mealsTotal = expenses
     .filter((e) => ["Breakfast", "Lunch", "Dinner", "Snacks"].includes(e.item))
@@ -74,7 +90,57 @@ export const BudgetSummary = ({
   const othersTotal = expenses
     .filter((e) => e.item === "Others")
     .reduce((sum, e) => sum + e.cost, 0);
+
+  const monthlyBudget = user?.monthly_budget || 0;
+  const remainingBalance = monthlyBudget - monthlyTotal;
+
+  const handleUpdateBudget = async () => {
+    const budgetValue = parseFloat(newBudget);
+    if (isNaN(budgetValue) || budgetValue < 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid positive number for the budget.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updatedUser = await authAPI.updateProfile({ monthly_budget: budgetValue });
+      updateUser(updatedUser);
+      setIsBudgetDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Monthly budget updated successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update budget.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openBudgetDialog = () => {
+    setNewBudget(user?.monthly_budget?.toString() || "");
+    setIsBudgetDialogOpen(true);
+  };
+
   const stats = [
+    {
+      label: "Monthly Budget",
+      value: monthlyBudget,
+      icon: DollarSign,
+      color: "from-green-600 to-emerald-600",
+      action: openBudgetDialog,
+    },
+    {
+      label: "Remaining Balance",
+      value: remainingBalance,
+      icon: PiggyBank,
+      color: remainingBalance >= 0 ? "from-teal-500 to-green-500" : "from-red-500 to-pink-500",
+    },
     {
       label: "Today's Total",
       value: todayTotal,
@@ -99,7 +165,6 @@ export const BudgetSummary = ({
       icon: Wallet,
       color: "from-amber-500 to-orange-500",
     },
-    // { label: "Daily Average", value: dailyAverage, icon: Wallet, color: "from-amber-500 to-orange-500" },
     {
       label: "Meals Total",
       value: mealsTotal,
@@ -132,6 +197,7 @@ export const BudgetSummary = ({
       isCount: true,
     },
   ];
+
   return (
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -139,12 +205,20 @@ export const BudgetSummary = ({
           <div
             key={stat.label}
             style={{ animationDelay: `${index * 0.1}s` }}
-            className="card-glass rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-scale-in group"
+            className={`card-glass rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-scale-in group ${stat.action ? 'cursor-pointer ring-2 ring-transparent hover:ring-primary/50' : ''}`}
+            onClick={stat.action}
           >
             <div className="flex items-start justify-between mb-4">
-              <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+              <div
+                className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}
+              >
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
+              {stat.action && (
+                <div className="p-2 rounded-full bg-secondary/50 group-hover:bg-secondary text-primary transition-colors">
+                  <Pencil className="w-4 h-4" />
+                </div>
+              )}
             </div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">
               {stat.label}
@@ -161,6 +235,29 @@ export const BudgetSummary = ({
           Download All Expenses
         </Button>
       </div>
+
+      <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Monthly Budget</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="budget">Monthly Budget (AED)</Label>
+              <Input
+                id="budget"
+                type="number"
+                placeholder="Enter your budget"
+                value={newBudget}
+                onChange={(e) => setNewBudget(e.target.value)}
+              />
+            </div>
+            <Button className="w-full" onClick={handleUpdateBudget}>
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

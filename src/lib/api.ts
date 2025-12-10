@@ -1,13 +1,25 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// Helper to get token
+const getToken = () => localStorage.getItem('token');
+
 // Generic request handler
 async function request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+
+    // Attach token if exists
+    const token = getToken();
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options.headers as Record<string, string>,
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config: RequestInit = {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
+        headers,
         ...options,
     };
 
@@ -16,7 +28,12 @@ async function request(endpoint: string, options: RequestInit = {}) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+            // Handle 401 Unauthorized (invalid token) by clearing token
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                // Optional: redirect to login
+            }
+            throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
         }
 
         return data;
@@ -25,6 +42,23 @@ async function request(endpoint: string, options: RequestInit = {}) {
         throw error;
     }
 }
+
+// Auth API
+export const authAPI = {
+    login: (credentials) => request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+    }),
+    register: (userData) => request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+    }),
+    getMe: () => request('/auth/me'),
+    updateProfile: (data) => request('/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+};
 
 // Expense API
 export const expensesAPI = {
@@ -74,6 +108,7 @@ export const historyAPI = {
 };
 
 export default {
+    auth: authAPI,
     expenses: expensesAPI,
     roomRents: roomRentsAPI,
     history: historyAPI,
