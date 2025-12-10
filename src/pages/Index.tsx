@@ -192,10 +192,10 @@ const Index = () => {
           description: `Month ${monthToArchive} archived successfully`,
         });
       },
-      onError: (error: any) => {
+      onError: (error) => {
         toast({
           title: "Error",
-          description: `Failed to archive month: ${error.message}`,
+          description: `Failed to archive month: ${(error as Error).message}`,
           variant: "destructive",
         });
       },
@@ -858,7 +858,7 @@ const Index = () => {
                   )}
                   {Object.entries(budgetHistory)
                     .reverse()
-                    .map(([month, data]: [string, any]) => (
+                    .map(([month, data]: [string, { summary: { monthlyTotal: number; mealsTotal: number; averageMealsTotal: number } }]) => (
                       <div
                         key={month}
                         className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm flex flex-col"

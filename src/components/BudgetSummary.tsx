@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast"; // Assuming this exists based on Index.tsx
+import { useToast } from "@/hooks/use-toast";
 
 interface BudgetSummaryProps {
   expenses: Expense[];
@@ -91,8 +91,7 @@ export const BudgetSummary = ({
     .filter((e) => e.item === "Others")
     .reduce((sum, e) => sum + e.cost, 0);
 
-  const monthlyBudget = user?.monthly_budget || 0;
-  const remainingBalance = monthlyBudget - monthlyTotal;
+  // monthlyBudget and remainingBalance logic maintained but unused for display stats
 
   const handleUpdateBudget = async () => {
     const budgetValue = parseFloat(newBudget);
@@ -113,10 +112,10 @@ export const BudgetSummary = ({
         title: "Success",
         description: "Monthly budget updated successfully.",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update budget.",
+        description: (error as Error).message || "Failed to update budget.",
         variant: "destructive",
       });
     }
@@ -128,19 +127,6 @@ export const BudgetSummary = ({
   };
 
   const stats = [
-    {
-      label: "Monthly Budget",
-      value: monthlyBudget,
-      icon: DollarSign,
-      color: "from-green-600 to-emerald-600",
-      action: openBudgetDialog,
-    },
-    {
-      label: "Remaining Balance",
-      value: remainingBalance,
-      icon: PiggyBank,
-      color: remainingBalance >= 0 ? "from-teal-500 to-green-500" : "from-red-500 to-pink-500",
-    },
     {
       label: "Today's Total",
       value: todayTotal,
@@ -205,8 +191,7 @@ export const BudgetSummary = ({
           <div
             key={stat.label}
             style={{ animationDelay: `${index * 0.1}s` }}
-            className={`card-glass rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-scale-in group ${stat.action ? 'cursor-pointer ring-2 ring-transparent hover:ring-primary/50' : ''}`}
-            onClick={stat.action}
+            className={`card-glass rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-scale-in group`}
           >
             <div className="flex items-start justify-between mb-4">
               <div
@@ -214,11 +199,6 @@ export const BudgetSummary = ({
               >
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
-              {stat.action && (
-                <div className="p-2 rounded-full bg-secondary/50 group-hover:bg-secondary text-primary transition-colors">
-                  <Pencil className="w-4 h-4" />
-                </div>
-              )}
             </div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">
               {stat.label}

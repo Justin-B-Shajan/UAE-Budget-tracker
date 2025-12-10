@@ -10,7 +10,14 @@ const router = express.Router();
 router.get('/', authMiddleware, (req, res) => {
     try {
         const db = getDb();
-        const history = db.prepare('SELECT * FROM budget_history WHERE user_id = ? ORDER BY month DESC').all([req.userId]);
+        const stmt = db.prepare('SELECT * FROM budget_history WHERE user_id = ? ORDER BY month DESC');
+        stmt.bind([req.userId]);
+
+        const history = [];
+        while (stmt.step()) {
+            history.push(stmt.getAsObject());
+        }
+        stmt.free();
 
         // Parse the stored JSON
         const parsedHistory = history.map(h => ({
@@ -31,7 +38,14 @@ router.get('/', authMiddleware, (req, res) => {
 router.get('/:month', authMiddleware, (req, res) => {
     try {
         const db = getDb();
-        const history = db.prepare('SELECT * FROM budget_history WHERE month = ? AND user_id = ?').get([req.params.month, req.userId]);
+        const stmt = db.prepare('SELECT * FROM budget_history WHERE month = ? AND user_id = ?');
+        stmt.bind([req.params.month, req.userId]);
+
+        let history = null;
+        if (stmt.step()) {
+            history = stmt.getAsObject();
+        }
+        stmt.free();
 
         if (!history) {
             return res.status(404).json({ message: 'History not found for this month' });

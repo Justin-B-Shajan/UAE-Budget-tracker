@@ -41,7 +41,8 @@ async function request(endpoint: string, options: RequestInit = {}) {
             // Handle 401 Unauthorized (invalid token) by clearing token
             if (response.status === 401) {
                 localStorage.removeItem('token');
-                // Optional: redirect to login
+                // Dispatch event to notify AuthContext
+                window.dispatchEvent(new Event('auth:logout'));
             }
             throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
         }

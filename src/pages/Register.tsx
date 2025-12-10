@@ -38,11 +38,11 @@ const Register = () => {
                 description: "Account created successfully",
             });
             navigate("/");
-        } catch (error: any) {
+        } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message || "Failed to create account",
+                description: (error as Error).message || "Failed to create account",
             });
         } finally {
             setIsLoading(false);

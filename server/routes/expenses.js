@@ -24,7 +24,13 @@ router.get('/', authMiddleware, (req, res) => {
       LIMIT 50
     `;
         const stmt = db.prepare(query);
-        const expenses = stmt.all([req.userId]);
+        stmt.bind([req.userId]); // Bind parameters
+
+        const expenses = [];
+        while (stmt.step()) {
+            expenses.push(stmt.getAsObject());
+        }
+        stmt.free();
 
         console.log(`GET /expenses for user ${req.userId} (ALL). Found: ${expenses.length}`); // DEBUG LOG
 

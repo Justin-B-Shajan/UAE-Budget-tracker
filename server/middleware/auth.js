@@ -9,6 +9,7 @@ export const authMiddleware = (req, res, next) => {
     console.log('Auth Middleware - AuthHeader:', authHeader); // DEBUG LOG
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('Auth Middleware: No token provided');
         return res.status(401).json({ message: 'No token, authorization denied' });
     }
 
@@ -20,8 +21,10 @@ export const authMiddleware = (req, res, next) => {
 
         // Add user from payload
         req.userId = decoded.userId;
+        console.log('Auth Middleware: Token verified for user', req.userId);
         next();
     } catch (err) {
-        res.status(401).json({ message: 'Token is not valid' });
+        console.error('JWT Verification Error:', err.message); // DEBUG LOG
+        res.status(401).json({ message: 'Token is not valid', error: err.message });
     }
 };

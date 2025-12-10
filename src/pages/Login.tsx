@@ -28,11 +28,11 @@ const Login = () => {
                 description: "Logged in successfully",
             });
             navigate("/");
-        } catch (error: any) {
+        } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message || "Failed to login",
+                description: (error as Error).message || "Failed to login",
             });
         } finally {
             setIsLoading(false);

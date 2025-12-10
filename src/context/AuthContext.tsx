@@ -25,6 +25,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isAuthenticated = !!token;
 
     useEffect(() => {
+        // Listen for 401 logout events from api.ts
+        const handleLogout = () => logout();
+        window.addEventListener('auth:logout', handleLogout);
+
         if (token) {
             localStorage.setItem('token', token);
             // Fetch user details
@@ -43,6 +47,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem('token');
             setUser(null);
         }
+
+        return () => {
+            window.removeEventListener('auth:logout', handleLogout);
+        };
     }, [token]);
 
     const login = (newToken: string) => {

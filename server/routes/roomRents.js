@@ -22,7 +22,13 @@ router.get('/', authMiddleware, (req, res) => {
       ORDER BY date DESC, created_at DESC
     `;
         const stmt = db.prepare(query);
-        const rents = stmt.all([req.userId, startOfMonth]);
+        stmt.bind([req.userId, startOfMonth]);
+
+        const rents = [];
+        while (stmt.step()) {
+            rents.push(stmt.getAsObject());
+        }
+        stmt.free();
 
         res.json(rents);
     } catch (err) {
@@ -58,11 +64,18 @@ router.post(
                 'INSERT INTO room_rents (user_id, date, item, cost, description) VALUES (?, ?, ?, ?, ?)'
             );
 
-            const result = stmt.run([req.userId, date, item, cost, description || '']);
+            stmt.run([req.userId, date, item, cost, description || '']);
+            stmt.free();
             saveDatabase();
 
+            // Correctly get last insert ID for sql.js
+            const lastIdStmt = db.prepare('SELECT last_insert_rowid() as id');
+            lastIdStmt.step();
+            const lastId = lastIdStmt.getAsObject().id;
+            lastIdStmt.free();
+
             const newRent = {
-                id: result.lastInsertRowid,
+                id: lastId,
                 user_id: req.userId,
                 date,
                 item,
