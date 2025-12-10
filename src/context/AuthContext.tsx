@@ -8,13 +8,14 @@ export interface User {
     created_at: string;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
     token: string | null;
     user: User | null;
     login: (token: string) => void;
     logout: () => void;
     isAuthenticated: boolean;
     updateUser: (user: User) => void;
+    isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
     const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const isAuthenticated = !!token;
 
     useEffect(() => {
@@ -31,6 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (token) {
             localStorage.setItem('token', token);
+            setIsLoading(true);
             // Fetch user details
             authAPI.getMe()
                 .then(data => {
@@ -42,10 +45,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     if (err.message.includes('401')) {
                         logout();
                     }
+                })
+                .finally(() => {
+                    setIsLoading(false);
                 });
         } else {
             localStorage.removeItem('token');
             setUser(null);
+            setIsLoading(false);
         }
 
         return () => {
@@ -61,6 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = () => {
         setToken(null);
         localStorage.removeItem('token');
+        setUser(null); // Clear user on logout
         window.location.href = '/login';
     };
 
@@ -69,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated, updateUser }}>
+        <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated, updateUser, isLoading }}>
             {children}
         </AuthContext.Provider>
     );

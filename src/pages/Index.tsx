@@ -40,9 +40,18 @@ export interface Expense {
 }
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  // Show loading state while fetching user
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   const [historyToView, setHistoryToView] = useState<{
     month: string;
     expenses: Expense[];
