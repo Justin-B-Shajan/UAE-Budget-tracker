@@ -14,34 +14,47 @@ export const useRoomRents = () => {
 
 export const useCreateRoomRent = () => {
     const queryClient = useQueryClient();
+    const { user } = useAuth(); // Get current user
 
     return useMutation({
         mutationFn: roomRentsAPI.create,
         onSuccess: () => {
+            // Explicitly invalidate exact matches and fuzzy matches
             queryClient.invalidateQueries({ queryKey: ['roomRents'] });
+            if (user?.id) {
+                queryClient.invalidateQueries({ queryKey: ['roomRents', user.id] });
+            }
         },
     });
 };
 
 export const useUpdateRoomRent = () => {
     const queryClient = useQueryClient();
+    const { user } = useAuth(); // Get current user
 
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Omit<Expense, 'id'> }) =>
             roomRentsAPI.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['roomRents'] });
+            if (user?.id) {
+                queryClient.invalidateQueries({ queryKey: ['roomRents', user.id] });
+            }
         },
     });
 };
 
 export const useDeleteRoomRent = () => {
     const queryClient = useQueryClient();
+    const { user } = useAuth(); // Get current user
 
     return useMutation({
         mutationFn: roomRentsAPI.delete,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['roomRents'] });
+            if (user?.id) {
+                queryClient.invalidateQueries({ queryKey: ['roomRents', user.id] });
+            }
         },
     });
 };

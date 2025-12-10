@@ -19,9 +19,41 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Helper to decode JWT payload safely
+const decodeToken = (token: string): { userId: number } | null => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        console.error('Failed to decode token:', e);
+        return null;
+    }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-    const [user, setUser] = useState<User | null>(null);
+
+    // Initialize user with ID from token if possible
+    const [user, setUser] = useState<User | null>(() => {
+        const storedToken = localStorage.getItem('token');
+        if (storedToken) {
+            const decoded = decodeToken(storedToken);
+            if (decoded && decoded.userId) {
+                return {
+                    id: decoded.userId,
+                    username: 'Loading...',
+                    monthly_budget: 0,
+                    created_at: new Date().toISOString()
+                };
+            }
+        }
+        return null;
+    });
+
     const isAuthenticated = !!token;
 
     useEffect(() => {
@@ -31,7 +63,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (token) {
             localStorage.setItem('token', token);
-            // Fetch user details
+
+            // If user is null but token exists, try to decode again to enable queries immediately
+            if (!user) {
+                const decoded = decodeToken(token);
+                if (decoded && decoded.userId) {
+                    setUser({
+                        id: decoded.userId,
+                        username: 'Loading...',
+                        monthly_budget: 0,
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+
+            // Fetch full user details from server
             authAPI.getMe()
                 .then(data => {
                     setUser(data);
