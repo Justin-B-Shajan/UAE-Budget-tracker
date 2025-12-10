@@ -1,7 +1,9 @@
+```json
 {
     "$schema": "https://railway.app/railway.schema.json",
     "build": {
-        "builder": "NIXPACKS"
+        "builder": "NIXPACKS",
+        "buildCommand": "cd server && npm install"
     },
     "deploy": {
         "startCommand": "cd server && npm start",
@@ -9,3 +11,4 @@
         "restartPolicyMaxRetries": 10
     }
 }
+```
