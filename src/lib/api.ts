@@ -14,11 +14,19 @@ async function request(endpoint: string, options: RequestInit = {}) {
         ...options.headers as Record<string, string>,
     };
 
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+    // Verify token validity
+    if (token && typeof token === 'string') {
+        // Remove any whitespace/newlines which cause "String did not match expected pattern"
+        const cleanToken = token.trim();
+        if (cleanToken) {
+            headers['Authorization'] = `Bearer ${cleanToken}`;
+        }
     }
 
-    console.log(`API Request to ${url}`, { token: token ? 'Present' : 'Missing', headers }); // DEBUG LOG
+    console.log(`API Request to ${url}`, {
+        token: token ? (token.substring(0, 10) + '...') : 'Missing',
+        headers
+    }); // DEBUG LOG
 
     const config: RequestInit = {
         headers,
