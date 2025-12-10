@@ -208,6 +208,70 @@ const Index = () => {
     setEditingExpense(expense);
   };
 
+
+  const handleImport = async (file: File) => {
+    const text = await file.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "text/html");
+
+    const dateGroups = doc.querySelectorAll(".date-group");
+    let count = 0;
+
+    for (const group of Array.from(dateGroups)) {
+      const dateHeader = group.querySelector(".date-header")?.textContent?.trim();
+      if (!dateHeader) continue;
+
+      // Parse date: "Tuesday, March 14, 2024" -> "2024-03-14"
+      const dateObj = new Date(dateHeader);
+      if (isNaN(dateObj.getTime())) continue;
+
+      // Adjust for timezone offset to prevent date shifting
+      const offset = dateObj.getTimezoneOffset();
+      const localDate = new Date(dateObj.getTime() - (offset * 60 * 1000));
+      const dateStr = localDate.toISOString().split("T")[0];
+
+      const items = group.querySelectorAll(".expense-item");
+
+      for (const item of Array.from(items)) {
+        const nameEl = item.querySelector(".item-name");
+        // Skip dummy rows if any
+        if (!nameEl) continue;
+
+        const itemName = nameEl.textContent?.trim() || "Unknown";
+        const description = item.querySelector(".item-description")?.textContent?.trim();
+        const costStr = item.querySelector(".item-cost")?.textContent?.trim() || "0";
+        const cost = parseFloat(costStr.replace(/[^0-9.]/g, ""));
+
+        if (!itemName || isNaN(cost)) continue;
+
+        try {
+          await createExpense.mutateAsync({
+            date: dateStr,
+            item: itemName,
+            cost: cost,
+            description: description
+          });
+          count++;
+        } catch (err) {
+          console.error("Failed to import item:", itemName, err);
+        }
+      }
+    }
+
+    if (count > 0) {
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${count} expenses.`,
+      });
+    } else {
+      toast({
+        title: "Import Failed",
+        description: "No valid expenses found in the HTML file.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDownload = () => {
     const allExpenses = [...expenses, ...roomRents];
     const grouped = allExpenses.reduce((acc, exp) => {
@@ -772,6 +836,7 @@ const Index = () => {
             expenses={expenses}
             roomRents={roomRents}
             onDownloadAll={handleDownload}
+            onImport={handleImport}
           />
         </div>
 

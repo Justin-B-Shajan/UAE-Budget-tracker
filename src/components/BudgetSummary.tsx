@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Expense } from "@/pages/Index";
 import { Button } from "@/components/ui/button";
-import { Download, Pencil, PiggyBank, DollarSign } from "lucide-react";
+import { Download, Pencil, PiggyBank, DollarSign, Upload } from "lucide-react";
 import {
   Calendar,
   TrendingUp,
@@ -29,14 +29,38 @@ interface BudgetSummaryProps {
   expenses: Expense[];
   roomRents?: Expense[] | null;
   onDownloadAll: () => void;
+  onImport: (file: File) => void;
 }
 
 export const BudgetSummary = ({
   expenses,
   roomRents,
   onDownloadAll,
+  onImport,
 }: BudgetSummaryProps) => {
   const { user, updateUser } = useAuth();
+  // ... (skip unchanged lines) ...
+  <div className="mt-6 text-center flex justify-center gap-4">
+    <Button onClick={onDownloadAll}>
+      <Download className="mr-2 h-4 w-4" />
+      Download All Expenses
+    </Button>
+    <div className="relative">
+      <input
+        type="file"
+        accept=".html"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        onChange={(e) => {
+          if (e.target.files?.[0]) onImport(e.target.files[0]);
+          e.target.value = ''; // reset
+        }}
+      />
+      <Button variant="outline">
+        <Upload className="mr-2 h-4 w-4" />
+        Import HTML
+      </Button>
+    </div>
+  </div>
   const { toast } = useToast();
   const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [newBudget, setNewBudget] = useState(user?.monthly_budget?.toString() || "");
@@ -209,11 +233,26 @@ export const BudgetSummary = ({
           </div>
         ))}
       </div>
-      <div className="mt-6 text-center">
+      <div className="mt-6 text-center flex justify-center gap-4">
         <Button onClick={onDownloadAll}>
           <Download className="mr-2 h-4 w-4" />
           Download All Expenses
         </Button>
+        <div className="relative">
+          <input
+            type="file"
+            accept=".html"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            onChange={(e) => {
+              if (e.target.files?.[0]) onImport(e.target.files[0]);
+              e.target.value = ''; // reset
+            }}
+          />
+          <Button variant="outline">
+            <Upload className="mr-2 h-4 w-4" />
+            Import HTML
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
