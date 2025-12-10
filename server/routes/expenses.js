@@ -64,21 +64,39 @@ router.post(
 
             console.log('Inserting expense:', { userId: req.userId, date, item, cost }); // DEBUG LOG
 
-            const result = stmt.run([req.userId, date, item, cost, description || '']);
+            stmt.run([req.userId, date, item, cost, description || '']);
+            stmt.free(); // Always free statements
+
             saveDatabase();
+
+            // Correctly get last insert ID for sql.js
+            const lastIdStmt = db.prepare('SELECT last_insert_rowid() as id');
+            lastIdStmt.step();
+            const lastId = lastIdStmt.getAsObject().id;
+            lastIdStmt.free();
+
+            console.log('Inserted Row ID:', lastId); // DEBUG LOG
 
             // IMMEDIATE VERIFICATION
             const verificationStmt = db.prepare('SELECT * FROM expenses WHERE id = ?');
-            const savedExpense = verificationStmt.get([result.lastInsertRowid]);
+            verificationStmt.bind([lastId]);
+            let savedExpense = null;
+            if (verificationStmt.step()) {
+                savedExpense = verificationStmt.getAsObject();
+            }
+            verificationStmt.free();
             console.log('IMMEDIATE VERIFICATION - Retrieved inserted expense:', savedExpense); // DEBUG LOG
 
             // Check total count for user
             const countStmt = db.prepare('SELECT count(*) as count FROM expenses WHERE user_id = ?');
-            const count = countStmt.get([req.userId]);
+            countStmt.bind([req.userId]);
+            countStmt.step();
+            const count = countStmt.getAsObject().count;
+            countStmt.free();
             console.log(`IMMEDIATE VERIFICATION - Total expenses for user ${req.userId}:`, count); // DEBUG LOG
 
             const newExpense = {
-                id: result.lastInsertRowid,
+                id: lastId,
                 user_id: req.userId,
                 date,
                 item,
@@ -89,8 +107,8 @@ router.post(
 
             res.json(newExpense);
         } catch (err) {
-            console.error(err.message);
-            res.status(500).send('Server Error');
+            console.error('POST /expenses error:', err);
+            res.status(500).json({ message: 'Server Error', error: err.message });
         }
     }
 );
