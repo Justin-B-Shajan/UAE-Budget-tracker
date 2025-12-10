@@ -48,6 +48,9 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// DEBUG ROUTE
+import { getDb } from './config/database.js';
+
 // Root endpoint
 app.get('/', (req, res) => {
     res.json({
@@ -57,9 +60,35 @@ app.get('/', (req, res) => {
             expenses: '/api/expenses',
             roomRents: '/api/room-rents',
             history: '/api/history',
-            health: '/api/health'
+            health: '/api/health',
+            debug: '/api/debug-dump'
         }
     });
+});
+
+app.get('/api/debug-dump', (req, res) => {
+    try {
+        const db = getDb();
+        const users = db.exec("SELECT id, username, monthly_budget FROM users");
+        const expensesCount = db.exec("SELECT count(*) FROM expenses");
+        const expensesSample = db.exec("SELECT * FROM expenses ORDER BY id DESC LIMIT 5");
+
+        res.json({
+            message: "Debug Dump",
+            users: users[0]?.values || [],
+            totalExpenses: expensesCount[0]?.values[0][0] || 0,
+            sampleExpenses: expensesSample[0]?.columns ? {
+                columns: expensesSample[0].columns,
+                values: expensesSample[0].values
+            } : [],
+            env: {
+                DB_PATH: process.env.DB_PATH,
+                NODE_ENV: process.env.NODE_ENV
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // 404 handler

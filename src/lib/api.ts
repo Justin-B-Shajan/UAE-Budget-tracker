@@ -18,6 +18,10 @@ async function request(endpoint: string, options: RequestInit = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // DISABLE CACHING
+    headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+
     console.log(`API Request to ${url}`, { token: token ? 'Present' : 'Missing', headers }); // DEBUG LOG
 
     const config: RequestInit = {
