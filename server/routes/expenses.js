@@ -67,6 +67,16 @@ router.post(
             const result = stmt.run([req.userId, date, item, cost, description || '']);
             saveDatabase();
 
+            // IMMEDIATE VERIFICATION
+            const verificationStmt = db.prepare('SELECT * FROM expenses WHERE id = ?');
+            const savedExpense = verificationStmt.get([result.lastInsertRowid]);
+            console.log('IMMEDIATE VERIFICATION - Retrieved inserted expense:', savedExpense); // DEBUG LOG
+
+            // Check total count for user
+            const countStmt = db.prepare('SELECT count(*) as count FROM expenses WHERE user_id = ?');
+            const count = countStmt.get([req.userId]);
+            console.log(`IMMEDIATE VERIFICATION - Total expenses for user ${req.userId}:`, count); // DEBUG LOG
+
             const newExpense = {
                 id: result.lastInsertRowid,
                 user_id: req.userId,
