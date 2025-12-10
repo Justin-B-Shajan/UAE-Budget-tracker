@@ -119,6 +119,38 @@ router.post(
     }
 );
 
+// @route   PUT api/expenses/:id
+// @desc    Update an expense
+// @access  Private
+router.put('/:id', authMiddleware, (req, res) => {
+    const { date, item, cost, description } = req.body;
+
+    try {
+        const db = getDb();
+
+        // Check if expense exists and belongs to user
+        const checkStmt = db.prepare('SELECT * FROM expenses WHERE id = ? AND user_id = ?');
+        const expense = checkStmt.get([req.params.id, req.userId]);
+
+        if (!expense) {
+            return res.status(404).json({ message: 'Expense not found' });
+        }
+
+        const stmt = db.prepare(
+            'UPDATE expenses SET date = ?, item = ?, cost = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?'
+        );
+
+        stmt.run([date, item, cost, description || '', req.params.id, req.userId]);
+        saveDatabase();
+
+        const updatedExpense = { ...expense, date, item, cost, description };
+        res.json(updatedExpense);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   DELETE api/expenses/:id
 // @desc    Delete expense
 // @access  Private

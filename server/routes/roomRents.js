@@ -92,6 +92,38 @@ router.post(
     }
 );
 
+// @route   PUT api/room-rents/:id
+// @desc    Update a room rent
+// @access  Private
+router.put('/:id', authMiddleware, (req, res) => {
+    const { date, item, cost, description } = req.body;
+
+    try {
+        const db = getDb();
+
+        // Check if entry exists and belongs to user
+        const checkStmt = db.prepare('SELECT * FROM room_rents WHERE id = ? AND user_id = ?');
+        const rent = checkStmt.get([req.params.id, req.userId]);
+
+        if (!rent) {
+            return res.status(404).json({ message: 'Room rent not found' });
+        }
+
+        const stmt = db.prepare(
+            'UPDATE room_rents SET date = ?, item = ?, cost = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?'
+        );
+
+        stmt.run([date, item, cost, description || '', req.params.id, req.userId]);
+        saveDatabase();
+
+        const updatedRent = { ...rent, date, item, cost, description };
+        res.json(updatedRent);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   DELETE api/room-rents/:id
 // @desc    Delete room rent
 // @access  Private
