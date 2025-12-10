@@ -16,13 +16,17 @@ router.get('/', authMiddleware, (req, res) => {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
         // Filter by user_id
+        // TEMPORARY DEBUG: Remove date filter to see all expenses
         const query = `
       SELECT * FROM expenses 
-      WHERE user_id = ? AND date >= ?
+      WHERE user_id = ?
       ORDER BY date DESC, created_at DESC
+      LIMIT 50
     `;
         const stmt = db.prepare(query);
-        const expenses = stmt.all([req.userId, startOfMonth]);
+        const expenses = stmt.all([req.userId]);
+
+        console.log(`GET /expenses for user ${req.userId} (ALL). Found: ${expenses.length}`); // DEBUG LOG
 
         res.json(expenses);
     } catch (err) {
@@ -57,6 +61,8 @@ router.post(
             const stmt = db.prepare(
                 'INSERT INTO expenses (user_id, date, item, cost, description) VALUES (?, ?, ?, ?, ?)'
             );
+
+            console.log('Inserting expense:', { userId: req.userId, date, item, cost }); // DEBUG LOG
 
             const result = stmt.run([req.userId, date, item, cost, description || '']);
             saveDatabase();
