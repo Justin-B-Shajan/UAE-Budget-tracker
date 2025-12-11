@@ -21,7 +21,6 @@ router.get('/', authMiddleware, (req, res) => {
       SELECT * FROM expenses 
       WHERE user_id = ?
       ORDER BY date DESC, created_at DESC
-      LIMIT 50
     `;
         const stmt = db.prepare(query);
         stmt.bind([req.userId]); // Bind parameters
@@ -171,6 +170,33 @@ router.delete('/:id', authMiddleware, (req, res) => {
         saveDatabase();
 
         res.json({ message: 'Expense removed' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+// @route   DELETE api/expenses/all
+// @desc    Delete ALL expenses, room rents, and history for the user (Reset Account)
+// @access  Private
+router.delete('/all', authMiddleware, (req, res) => {
+    try {
+        const db = getDb();
+        console.log(`Resetting data for user ${req.userId}...`);
+
+        const tables = ['expenses', 'room_rents', 'budget_history'];
+
+        tables.forEach(table => {
+            const stmt = db.prepare(`DELETE FROM ${table} WHERE user_id = ?`);
+            stmt.run([req.userId]);
+            stmt.free();
+        });
+
+        // Rebuild the database file to ensure it's properly cleaned
+        db.run('VACUUM;');
+
+        saveDatabase();
+
+        res.json({ message: 'All data reset successfully' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

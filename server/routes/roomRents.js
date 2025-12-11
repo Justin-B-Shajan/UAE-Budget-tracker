@@ -11,18 +11,13 @@ const router = express.Router();
 router.get('/', authMiddleware, (req, res) => {
     try {
         const db = getDb();
-        // Get current month rents by default
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-
-        // Filter by user_id
         const query = `
       SELECT * FROM room_rents 
-      WHERE user_id = ? AND date >= ?
+      WHERE user_id = ?
       ORDER BY date DESC, created_at DESC
     `;
         const stmt = db.prepare(query);
-        stmt.bind([req.userId, startOfMonth]);
+        stmt.bind([req.userId]);
 
         const rents = [];
         while (stmt.step()) {
@@ -57,6 +52,9 @@ router.post(
         }
 
         const { date, item, cost, description } = req.body;
+        console.log('POST /api/room-rents - Received request for user:', req.userId);
+        console.log('Request body:', req.body);
+
 
         try {
             const db = getDb();
@@ -64,6 +62,7 @@ router.post(
                 'INSERT INTO room_rents (user_id, date, item, cost, description) VALUES (?, ?, ?, ?, ?)'
             );
 
+            console.log('Attempting to insert into room_rents with user_id:', req.userId);
             stmt.run([req.userId, date, item, cost, description || '']);
             stmt.free();
             saveDatabase();
@@ -73,6 +72,18 @@ router.post(
             lastIdStmt.step();
             const lastId = lastIdStmt.getAsObject().id;
             lastIdStmt.free();
+            console.log('Insertion successful. New room_rent ID:', lastId);
+
+            // IMMEDIATE VERIFICATION
+            const verifyStmt = db.prepare('SELECT * FROM room_rents WHERE id = ?');
+            verifyStmt.bind([lastId]);
+            let savedRent = null;
+            if (verifyStmt.step()) {
+                savedRent = verifyStmt.getAsObject();
+            }
+            verifyStmt.free();
+            console.log('IMMEDIATE VERIFICATION - Retrieved saved rent:', savedRent);
+
 
             const newRent = {
                 id: lastId,
@@ -86,7 +97,7 @@ router.post(
 
             res.json(newRent);
         } catch (err) {
-            console.error(err.message);
+            console.error('POST /api/room-rents - Error:', err.message);
             res.status(500).send('Server Error');
         }
     }

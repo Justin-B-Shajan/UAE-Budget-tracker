@@ -30,6 +30,7 @@ import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } fro
 import { useRoomRents, useCreateRoomRent, useUpdateRoomRent, useDeleteRoomRent } from "@/hooks/useRoomRents";
 import { useBudgetHistory, useMonthHistory, useArchiveMonth } from "@/hooks/useBudgetHistory";
 import { useToast } from "@/hooks/use-toast";
+import { expensesAPI } from "@/lib/api";
 
 export interface Expense {
   id: string;
@@ -209,64 +210,116 @@ const Index = () => {
   };
 
 
+  const handleReset = async () => {
+    toast({
+      title: "Resetting Data",
+      description: "Please wait while we clear all your data...",
+    });
+
+    try {
+      await expensesAPI.deleteAll();
+      toast({
+        title: "Reset Successful",
+        description: "All your data has been cleared. The page will now reload.",
+      });
+      // Invalidate all queries to refresh UI
+      setTimeout(() => {
+        window.location.reload(); // Simplest way to ensure clean slate
+      }, 1500);
+    } catch (err) {
+      toast({
+        title: "Reset Failed",
+        description: `Failed to reset data: ${err.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleImport = async (file: File) => {
-    const text = await file.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(text, "text/html");
+    try {
+      const text = await file.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, "text/html");
 
-    const dateGroups = doc.querySelectorAll(".date-group");
-    let count = 0;
+      const dateGroups = doc.querySelectorAll(".date-group");
+      const expensesToCreate: { date: string; item: string; cost: number; description?: string }[] = [];
 
-    for (const group of Array.from(dateGroups)) {
-      const dateHeader = group.querySelector(".date-header")?.textContent?.trim();
-      if (!dateHeader) continue;
+      // 1. Parse all items first
+      for (const group of Array.from(dateGroups)) {
+        const dateHeader = group.querySelector(".date-header")?.textContent?.trim();
+        if (!dateHeader) continue;
 
-      // Parse date: "Tuesday, March 14, 2024" -> "2024-03-14"
-      const dateObj = new Date(dateHeader);
-      if (isNaN(dateObj.getTime())) continue;
+        const dateObj = new Date(dateHeader);
+        if (isNaN(dateObj.getTime())) continue;
 
-      // Adjust for timezone offset to prevent date shifting
-      const offset = dateObj.getTimezoneOffset();
-      const localDate = new Date(dateObj.getTime() - (offset * 60 * 1000));
-      const dateStr = localDate.toISOString().split("T")[0];
+        // Use local calendar getters to avoid timezone shifting
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
 
-      const items = group.querySelectorAll(".expense-item");
+        const items = group.querySelectorAll(".expense-item");
 
-      for (const item of Array.from(items)) {
-        const nameEl = item.querySelector(".item-name");
-        // Skip dummy rows if any
-        if (!nameEl) continue;
+        for (const item of Array.from(items)) {
+          const nameEl = item.querySelector(".item-name");
+          if (!nameEl) continue;
 
-        const itemName = nameEl.textContent?.trim() || "Unknown";
-        const description = item.querySelector(".item-description")?.textContent?.trim();
-        const costStr = item.querySelector(".item-cost")?.textContent?.trim() || "0";
-        const cost = parseFloat(costStr.replace(/[^0-9.]/g, ""));
+          const itemName = nameEl.textContent?.trim() || "Unknown";
+          const description = item.querySelector(".item-description")?.textContent?.trim();
+          const costStr = item.querySelector(".item-cost")?.textContent?.trim() || "0";
+          const cost = parseFloat(costStr.replace(/[^0-9.]/g, ""));
 
-        if (!itemName || isNaN(cost)) continue;
+          if (!itemName || isNaN(cost)) continue;
 
-        try {
-          await createExpense.mutateAsync({
+          expensesToCreate.push({
             date: dateStr,
             item: itemName,
             cost: cost,
             description: description
           });
-          count++;
-        } catch (err) {
-          console.error("Failed to import item:", itemName, err);
         }
       }
-    }
 
-    if (count > 0) {
+      if (expensesToCreate.length === 0) {
+        toast({
+          title: "Import Failed",
+          description: "No expenses found to import.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({
-        title: "Import Successful",
-        description: `Successfully imported ${count} expenses.`,
+        title: "Importing...",
+        description: `Found ${expensesToCreate.length} expenses. Processing...`,
       });
-    } else {
+
+      // 2. Process in batches to prevent overload but maintain speed
+      let successCount = 0;
+      const BATCH_SIZE = 5;
+
+      for (let i = 0; i < expensesToCreate.length; i += BATCH_SIZE) {
+        const batch = expensesToCreate.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (exp) => {
+          try {
+            await createExpense.mutateAsync(exp);
+            successCount++;
+          } catch (err) {
+            console.error("Failed to import individual item:", exp);
+          }
+        }));
+      }
+
       toast({
-        title: "Import Failed",
-        description: "No valid expenses found in the HTML file.",
+        title: "Import Complete",
+        description: `Successfully imported ${successCount} out of ${expensesToCreate.length} expenses.`,
+      });
+
+    } catch (error) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import Error",
+        description: "Failed to parse the file.",
         variant: "destructive"
       });
     }
@@ -837,6 +890,7 @@ const Index = () => {
             roomRents={roomRents}
             onDownloadAll={handleDownload}
             onImport={handleImport}
+            onReset={handleReset}
           />
         </div>
 

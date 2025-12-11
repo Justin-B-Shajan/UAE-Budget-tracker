@@ -83,9 +83,18 @@ export const expensesAPI = {
         method: 'PUT',
         body: JSON.stringify(expenseData),
     }),
-    delete: (id) => request(`/expenses/${id}`, {
-        method: 'DELETE',
-    }),
+    delete: async (id: string) => {
+        const res = await request(`/expenses/${id}`, {
+            method: 'DELETE',
+        });
+        return res;
+    },
+    deleteAll: async () => {
+        const res = await request('/expenses/all', {
+            method: 'DELETE',
+        });
+        return res;
+    },
 };
 
 // Room Rent API

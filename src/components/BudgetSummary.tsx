@@ -1,35 +1,42 @@
 import { useState } from "react";
-import { Expense } from "@/pages/Index";
-import { Button } from "@/components/ui/button";
-import { Download, Pencil, PiggyBank, DollarSign, Upload } from "lucide-react";
 import {
+  Download,
+  Pencil,
+  PiggyBank,
+  DollarSign,
+  Upload,
+  Trash2,
   Calendar,
+  CalendarDays,
   TrendingUp,
   Wallet,
-  CalendarDays,
-  ShoppingBag,
-  Hash,
   Utensils,
   Scale,
+  ShoppingBag,
   Home,
+  Hash,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { authAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { authAPI } from "@/lib/api";
+import { Expense } from "@/pages/Index";
 
 interface BudgetSummaryProps {
   expenses: Expense[];
   roomRents?: Expense[] | null;
   onDownloadAll: () => void;
   onImport: (file: File) => void;
+  onReset: () => void;
 }
 
 export const BudgetSummary = ({
@@ -37,30 +44,10 @@ export const BudgetSummary = ({
   roomRents,
   onDownloadAll,
   onImport,
+  onReset,
 }: BudgetSummaryProps) => {
   const { user, updateUser } = useAuth();
-  // ... (skip unchanged lines) ...
-  <div className="mt-6 text-center flex justify-center gap-4">
-    <Button onClick={onDownloadAll}>
-      <Download className="mr-2 h-4 w-4" />
-      Download All Expenses
-    </Button>
-    <div className="relative">
-      <input
-        type="file"
-        accept=".html"
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        onChange={(e) => {
-          if (e.target.files?.[0]) onImport(e.target.files[0]);
-          e.target.value = ''; // reset
-        }}
-      />
-      <Button variant="outline">
-        <Upload className="mr-2 h-4 w-4" />
-        Import HTML
-      </Button>
-    </div>
-  </div>
+
   const { toast } = useToast();
   const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [newBudget, setNewBudget] = useState(user?.monthly_budget?.toString() || "");
@@ -93,7 +80,8 @@ export const BudgetSummary = ({
     .reduce((sum, e) => sum + e.cost, 0);
 
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const monthlyTotal = expenses
+  const allCurrentMonthExpenses = [...expenses, ...(roomRents || [])];
+  const monthlyTotal = allCurrentMonthExpenses
     .filter((e) => e.date.startsWith(currentMonth))
     .reduce((sum, e) => sum + e.cost, 0);
 
@@ -210,6 +198,71 @@ export const BudgetSummary = ({
 
   return (
     <div>
+      <Card className="mb-8 overflow-hidden border-none shadow-xl bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10">
+        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle className="text-lg font-medium">Monthly Budget Overview</CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openBudgetDialog}
+            className="hover:bg-primary/20 rounded-full"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-3 mb-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <PiggyBank className="h-4 w-4 text-blue-500" />
+                Monthly Budget
+              </div>
+              <div className="text-2xl font-bold">
+                AED {user?.monthly_budget?.toFixed(2) || "0.00"}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <DollarSign className="h-4 w-4 text-orange-500" />
+                Spent This Month
+              </div>
+              <div className="text-2xl font-bold">
+                AED {monthlyTotal.toFixed(2)}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wallet className="h-4 w-4 text-green-500" />
+                Remaining
+              </div>
+              <div className={`text-2xl font-bold ${(user?.monthly_budget || 0) - monthlyTotal < 0 ? "text-red-500" : "text-green-500"}`}>
+                AED {((user?.monthly_budget || 0) - monthlyTotal).toFixed(2)}
+              </div>
+            </div>
+          </div>
+          <div className="relative pt-2">
+            <div className="flex justify-between text-xs mb-2">
+              <span className="font-medium">Progress</span>
+              <span className="font-medium">
+                {user?.monthly_budget
+                  ? `${Math.min((monthlyTotal / user.monthly_budget) * 100, 100).toFixed(1)}%`
+                  : "0%"}
+              </span>
+            </div>
+            <div className="h-3 w-full bg-secondary/30 rounded-full overflow-hidden backdrop-blur-sm">
+              <div
+                className={`h-full transition-all duration-500 rounded-full shadow-lg ${(user?.monthly_budget || 0) > 0 && monthlyTotal > (user?.monthly_budget || 0)
+                  ? "bg-gradient-to-r from-red-500 to-red-600"
+                  : "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                  }`}
+                style={{
+                  width: `${user?.monthly_budget ? Math.min((monthlyTotal / user.monthly_budget) * 100, 100) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <div
@@ -233,10 +286,10 @@ export const BudgetSummary = ({
           </div>
         ))}
       </div>
-      <div className="mt-6 text-center flex justify-center gap-4">
+      <div className="mt-6 text-center flex justify-center gap-4 flex-wrap">
         <Button onClick={onDownloadAll}>
           <Download className="mr-2 h-4 w-4" />
-          Download All Expenses
+          Download All
         </Button>
         <div className="relative">
           <input
@@ -253,6 +306,10 @@ export const BudgetSummary = ({
             Import HTML
           </Button>
         </div>
+        <Button variant="destructive" onClick={onReset}>
+          <Trash2 className="mr-2 h-4 w-4" />
+          Reset Data
+        </Button>
       </div>
 
       <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
