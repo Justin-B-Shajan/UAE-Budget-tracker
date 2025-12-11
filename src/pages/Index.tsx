@@ -289,6 +289,8 @@ const Index = () => {
         return;
       }
 
+      console.log(`📦 Found ${expensesToCreate.length} expenses to import:`, expensesToCreate);
+
       toast({
         title: "Importing...",
         description: `Found ${expensesToCreate.length} expenses. Processing...`,
@@ -296,30 +298,49 @@ const Index = () => {
 
       // 2. Process in batches to prevent overload but maintain speed
       let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
       const BATCH_SIZE = 5;
 
       for (let i = 0; i < expensesToCreate.length; i += BATCH_SIZE) {
         const batch = expensesToCreate.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async (exp) => {
+        console.log(`📊 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, batch);
+
+        await Promise.all(batch.map(async (exp, idx) => {
           try {
-            await createExpense.mutateAsync(exp);
+            console.log(`⏳ Importing expense ${i + idx + 1}/${expensesToCreate.length}:`, exp);
+            const result = await createExpense.mutateAsync(exp);
+            console.log(`✅ Successfully imported:`, exp, result);
             successCount++;
           } catch (err) {
-            console.error("Failed to import individual item:", exp);
+            errorCount++;
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error(`❌ Failed to import expense ${i + idx + 1}:`, exp, "Error:", errorMsg);
+            errors.push(`${exp.item} (${exp.date}): ${errorMsg}`);
           }
         }));
       }
 
-      toast({
-        title: "Import Complete",
-        description: `Successfully imported ${successCount} out of ${expensesToCreate.length} expenses.`,
-      });
+      console.log(`✨ Import complete! Success: ${successCount}, Failed: ${errorCount}`);
+
+      if (successCount > 0) {
+        toast({
+          title: "Import Complete",
+          description: `Successfully imported ${successCount} out of ${expensesToCreate.length} expenses.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: `Failed to import any expenses. ${errors.length > 0 ? 'First error: ' + errors[0] : 'Check console for details.'}`,
+          variant: "destructive"
+        });
+      }
 
     } catch (error) {
-      console.error("Import error:", error);
+      console.error("💥 Import error:", error);
       toast({
         title: "Import Error",
-        description: "Failed to parse the file.",
+        description: error instanceof Error ? error.message : "Failed to parse the file.",
         variant: "destructive"
       });
     }
