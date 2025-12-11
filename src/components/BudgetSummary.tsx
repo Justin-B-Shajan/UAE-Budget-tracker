@@ -198,71 +198,9 @@ export const BudgetSummary = ({
 
   return (
     <div>
-      <Card className="mb-8 overflow-hidden border-none shadow-xl bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="text-lg font-medium">Monthly Budget Overview</CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={openBudgetDialog}
-            className="hover:bg-primary/20 rounded-full"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-3 mb-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <PiggyBank className="h-4 w-4 text-blue-500" />
-                Monthly Budget
-              </div>
-              <div className="text-2xl font-bold">
-                AED {user?.monthly_budget?.toFixed(2) || "0.00"}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4 text-orange-500" />
-                Spent This Month
-              </div>
-              <div className="text-2xl font-bold">
-                AED {monthlyTotal.toFixed(2)}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Wallet className="h-4 w-4 text-green-500" />
-                Remaining
-              </div>
-              <div className={`text-2xl font-bold ${(user?.monthly_budget || 0) - monthlyTotal < 0 ? "text-red-500" : "text-green-500"}`}>
-                AED {((user?.monthly_budget || 0) - monthlyTotal).toFixed(2)}
-              </div>
-            </div>
-          </div>
-          <div className="relative pt-2">
-            <div className="flex justify-between text-xs mb-2">
-              <span className="font-medium">Progress</span>
-              <span className="font-medium">
-                {user?.monthly_budget
-                  ? `${Math.min((monthlyTotal / user.monthly_budget) * 100, 100).toFixed(1)}%`
-                  : "0%"}
-              </span>
-            </div>
-            <div className="h-3 w-full bg-secondary/30 rounded-full overflow-hidden backdrop-blur-sm">
-              <div
-                className={`h-full transition-all duration-500 rounded-full shadow-lg ${(user?.monthly_budget || 0) > 0 && monthlyTotal > (user?.monthly_budget || 0)
-                  ? "bg-gradient-to-r from-red-500 to-red-600"
-                  : "bg-gradient-to-r from-emerald-500 to-emerald-600"
-                  }`}
-                style={{
-                  width: `${user?.monthly_budget ? Math.min((monthlyTotal / user.monthly_budget) * 100, 100) : 0}%`,
-                }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
+
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <div
